@@ -6,6 +6,9 @@ HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
 MUL = 0b10100010
+POP = 0b01000110
+PUSH = 0b01000101
+SP = 7
 
 class CPU:
     """Main CPU class."""
@@ -88,15 +91,39 @@ class CPU:
                 self.pc += 3
 
             elif IR == PRN:
+                #Print 
                 data = self.ram_read(self.pc + 1)
                 print(self.reg[data])
                 self.pc += 2
 
             elif IR == MUL:
+                #Multiply
                 a = self.ram[self.pc + 1]
                 b = self.ram[self.pc + 2]
                 self.reg[a] *= self.reg[b]
                 self.pc += 3
+
+            elif IR == PUSH:
+                #Push
+                #Grab the register argument
+                reg = self.ram[self.pc + 1]
+                val = self.reg[reg]
+                #Decrement the SP
+                self.reg[SP] -= 1
+                #Copy the value in the register to the address pointed by the SP
+                self.ram[self.reg[SP]] = val
+                self.pc += 2
+
+            elif IR == POP:
+                #Pop
+                #Grab the register argument
+                reg = self.ram[self.pc + 1]
+                val = self.ram[self.reg[SP]]
+                # Copy the value of address pointed to by SP to given reg
+                self.reg[reg] = val
+                #Increment the SP
+                self.reg[SP] += 1
+                self.pc += 2
 
             elif IR == HLT:
                 running = False
