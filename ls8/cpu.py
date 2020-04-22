@@ -8,7 +8,7 @@ PRN = 0b01000111
 MUL = 0b10100010
 POP = 0b01000110
 PUSH = 0b01000101
-SP = 7
+SP = 7 #This is always reserved for the stack pointer. 
 
 class CPU:
     """Main CPU class."""
@@ -112,6 +112,7 @@ class CPU:
                 self.reg[SP] -= 1
                 #Copy the value in the register to the address pointed by the SP
                 self.ram[self.reg[SP]] = val
+
                 self.pc += 2
 
             elif IR == POP:
