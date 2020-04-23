@@ -2,57 +2,111 @@
 
 import sys
 
-HLT = 0b00000001
+#These increase readability
 LDI = 0b10000010
-PRN = 0b01000111
+PRN = 0b001000111
+HLT = 0b00000001
 MUL = 0b10100010
-POP = 0b01000110
+ADD = 0b10100000
 PUSH = 0b01000101
-SP = 7 #This is always reserved for the stack pointer. 
+POP = 0b01000110
+CALL = 0b01010000
+RET = 0b00010001
+SP = 7  # R7 is reservered for the pointer to the stack
 
+#Creating the CPU Class
 class CPU:
     """Main CPU class."""
 
     def __init__(self):
         """Construct a new CPU."""
-        self.reg = [0] * 8
-        self.ram = [0] * 256
-        self.pc = 0
 
-    def load(self):
+        # Dispatch table with all the functions
+        self.dispatch_table = {LDI: self.ldi, PRN: self.prn, HLT: self.hlt, MUL: self.mul,
+                               ADD: self.add, PUSH: self.push, POP: self.pop,
+                               CALL: self.call, RET: self.ret}
+
+        self.ram = [0] * 256 
+        self.reg = [0] * 8  
+        self.pc = 0 
+        self.running = False
+
+    #Various Functions
+    #Sets the value of a register to an int
+    def ldi(self, *argv):
+        self.reg[argv[0]] = argv[1]
+        self.pc += 3
+    #Prints the number in given register
+    def prn(self, *argv):
+        print(self.reg[argv[0]])
+        self.pc += 2
+    #Halts and exits the emulator
+    def hlt(self, *argv):
+        self.running = False
+        self.pc += 1
+    #Multiplies two registers and stores in register A
+    def mul(self, *argv):
+        self.alu('MUL', argv[0], argv[1])
+        self.pc += 3
+    #adds two registers and stores in register A
+    def add(self, *argv):
+        self.alu("ADD", argv[0], argv[1])
+        self.pc += 3
+    #Push value of register onto the stack
+    def push(self, *argv):
+        self.reg[SP] -= 1
+        self.ram[self.reg[SP]] = self.reg[argv[0]]
+        self.pc += 2
+    #Pop the value at the top of the stack into the given register
+    def pop(self, *argv):
+        copy_stack = self.ram[self.reg[SP]]
+        self.reg[argv[0]] = copy_stack
+        self.reg[SP] += 1
+        self.pc += 2
+    #Calls a subroutine at the address stored in the register.
+    def call(self, *argv):
+        self.reg[SP] -= 1
+        self.ram[self.reg[SP]] = self.pc + 2
+        new_reg = self.ram[self.pc + 1]
+        self.pc = self.reg[new_reg]
+    #Return from subroutine.
+    def ret(self, *argv):
+        self.pc = self.ram[self.reg[SP]]
+        self.reg[SP] += 1
+
+    def ram_read(self, mar):
+        return self.ram[mar]
+
+    def ram_write(self, mar, mdr):
+        self.ram[mar] = mdr
+
+    def load(self, filename):
         """Load a program into memory."""
+        address = 0
         try:
-            filename = sys.argv[1]
-            address = 0
             with open(filename) as f:
                 for line in f:
-                    # remove comments
-                    line = line.split("#")
-                    # remove whitespace
+                    line = line.split('#')
                     line = line[0].strip()
-                    # skip empty lines
+
                     if line == "":
                         continue
+
                     value = int(line, 2)
-                    # set the instruction to memory
                     self.ram[address] = value
                     address += 1
+
         except FileNotFoundError:
-            print("File not found")
-            sys.exit(2)
-
-    def ram_read(self, MAR):
-        return self.ram[MAR]
-
-    def ram_write(self, MAR, MDR):
-        self.ram[MAR] = MDR
+            print("File not found...")
+            sys.exit()
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -64,8 +118,8 @@ class CPU:
 
         print(f"TRACE: %02X | %02X %02X %02X |" % (
             self.pc,
-            #self.fl,
-            #self.ie,
+            # self.fl,
+            # self.ie,
             self.ram_read(self.pc),
             self.ram_read(self.pc + 1),
             self.ram_read(self.pc + 2)
@@ -75,63 +129,21 @@ class CPU:
             print(" %02X" % self.reg[i], end='')
 
         print()
-
+    #Runs the CPU
     def run(self):
         """Run the CPU."""
-        running = True
+        self.running = True
 
-        while running:
-            IR = self.ram[self.pc]
+        while self.running:
+            #Set the instruction from the RAM according the PC pointer
+            instruction = self.ram[self.pc]
+            #Get the followup instructions if any
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
 
-            if IR == LDI:
-                # store value in register
-                a = self.ram_read(self.pc + 1)
-                b = self.ram_read(self.pc + 2)
-                self.reg[a] = b
-                self.pc += 3
-
-            elif IR == PRN:
-                #Print 
-                data = self.ram_read(self.pc + 1)
-                print(self.reg[data])
-                self.pc += 2
-
-            elif IR == MUL:
-                #Multiply
-                a = self.ram[self.pc + 1]
-                b = self.ram[self.pc + 2]
-                self.reg[a] *= self.reg[b]
-                self.pc += 3
-
-            elif IR == PUSH:
-                #Push
-                #Grab the register argument
-                reg = self.ram[self.pc + 1]
-                val = self.reg[reg]
-                #Decrement the SP
-                self.reg[SP] -= 1
-                #Copy the value in the register to the address pointed by the SP
-                self.ram[self.reg[SP]] = val
-
-                self.pc += 2
-
-            elif IR == POP:
-                #Pop
-                #Grab the register argument
-                reg = self.ram[self.pc + 1]
-                val = self.ram[self.reg[SP]]
-                # Copy the value of address pointed to by SP to given reg
-                self.reg[reg] = val
-                #Increment the SP
-                self.reg[SP] += 1
-                self.pc += 2
-
-            elif IR == HLT:
-                running = False
-
-
-test = CPU()
-test.load()
-test.run()
-
-
+            #Check the dispatch table for the instruction then run
+            if instruction in self.dispatch_table:
+                self.dispatch_table[instruction](operand_a, operand_b)
+            else:
+                print('Invalid instruction...')
+                sys.exit()
