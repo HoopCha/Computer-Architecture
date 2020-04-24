@@ -12,6 +12,10 @@ PUSH = 0b01000101
 POP = 0b01000110
 CALL = 0b01010000
 RET = 0b00010001
+CMP = 0b10100111
+JMP = 0b01010100
+JEQ = 0b01010101
+JNE = 0b01010110
 SP = 7  # R7 is reservered for the pointer to the stack
 
 #Creating the CPU Class
@@ -24,12 +28,15 @@ class CPU:
         # Dispatch table with all the functions
         self.dispatch_table = {LDI: self.ldi, PRN: self.prn, HLT: self.hlt, MUL: self.mul,
                                ADD: self.add, PUSH: self.push, POP: self.pop,
-                               CALL: self.call, RET: self.ret}
+                               CALL: self.call, RET: self.ret, CMP: self.cmp, JMP: self.jmp, 
+                               JEQ: self.jeq, JNE: self.jne}
 
         self.ram = [0] * 256 
         self.reg = [0] * 8  
         self.pc = 0 
         self.running = False
+        self.FL = 0b00000000 
+
 
     #Various Functions
     #Sets the value of a register to an int
@@ -73,6 +80,30 @@ class CPU:
     def ret(self, *argv):
         self.pc = self.ram[self.reg[SP]]
         self.reg[SP] += 1
+    #
+    def cmp(self, *argv):
+        self.alu("CMP", argv[0], argv[1])
+        self.pc += 3
+    #Jump to address stored in the given register
+    def jmp(self, *argv):
+        address = self.reg[argv[0]]
+        #print("Jump!")
+        self.pc = address
+    #if equal flag is true jump to address stored in the register
+    def jeq(self, *argv):
+        address = self.reg[argv[0]]
+        if self.FL == 1:
+            self.pc = address
+        else:
+            self.pc += 2
+    #if equal flag is clear go to register point
+    def jne(self, *argv):
+        address = self.reg[argv[0]]
+        #print("jne:", self.FL)
+        if self.FL == 4 or self.FL == 2:
+            self.pc = address
+        else:
+            self.pc += 2
 
     def ram_read(self, mar):
         return self.ram[mar]
@@ -107,6 +138,18 @@ class CPU:
             self.reg[reg_a] += self.reg[reg_b]
         elif op == "MUL":
             self.reg[reg_a] *= self.reg[reg_b]
+        elif op == "CMP":
+            #print("CMP", self.reg[reg_a], self.reg[reg_b])
+            # check equal to
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.FL = 0b00000001
+            # check greater than
+            elif self.reg[reg_a] > self.reg[reg_b]:
+                self.FL = 0b00000010
+            # check less than
+            elif self.reg[reg_a] < self.reg[reg_b]:
+                self.FL = 0b00000100
+
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -128,7 +171,7 @@ class CPU:
         for i in range(8):
             print(" %02X" % self.reg[i], end='')
 
-        print()
+
     #Runs the CPU
     def run(self):
         """Run the CPU."""
@@ -137,10 +180,11 @@ class CPU:
         while self.running:
             #Set the instruction from the RAM according the PC pointer
             instruction = self.ram[self.pc]
+            #print(instruction)
             #Get the followup instructions if any
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
-
+            #print(instruction)
             #Check the dispatch table for the instruction then run
             if instruction in self.dispatch_table:
                 self.dispatch_table[instruction](operand_a, operand_b)
