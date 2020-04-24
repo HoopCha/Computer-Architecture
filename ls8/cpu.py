@@ -16,6 +16,13 @@ CMP = 0b10100111
 JMP = 0b01010100
 JEQ = 0b01010101
 JNE = 0b01010110
+AND = 0b10101000
+OR = 0b10101010
+XOR = 0b10101011
+NOT = 0b01101001
+SHL = 0b10101100
+SHR = 0b10101101
+MOD = 0b10100100
 SP = 7  # R7 is reservered for the pointer to the stack
 
 #Creating the CPU Class
@@ -29,7 +36,8 @@ class CPU:
         self.dispatch_table = {LDI: self.ldi, PRN: self.prn, HLT: self.hlt, MUL: self.mul,
                                ADD: self.add, PUSH: self.push, POP: self.pop,
                                CALL: self.call, RET: self.ret, CMP: self.cmp, JMP: self.jmp, 
-                               JEQ: self.jeq, JNE: self.jne}
+                               JEQ: self.jeq, JNE: self.jne, AND: self.andO, OR: self.orO, XOR: self.xor,
+                               NOT: self.notO, SHL: self.shl, SHR: self.shr, MOD: self.mod}
 
         self.ram = [0] * 256 
         self.reg = [0] * 8  
@@ -104,6 +112,27 @@ class CPU:
             self.pc = address
         else:
             self.pc += 2
+    def andO(self, *argv):
+        self.alu("AND", argv[0], argv[1])
+        self.pc += 3
+    def orO(self, *argv):
+        self.alu("OR", argv[0], argv[1])
+        self.pc += 3
+    def xor(self, *argv):
+        self.alu("XOR", argv[0], argv[1])
+        self.pc += 3
+    def notO(self, *argv):
+        self.alu("NOT", argv[0], argv[1])
+        self.pc += 2
+    def shl(self, *argv):
+        self.alu("SHL", argv[0], argv[1])
+        self.pc += 3
+    def shr(self, *argv):
+        self.alu("SHR", argv[0], argv[1])
+        self.pc += 3
+    def mod(self, *argv):
+        self.alu("MOD", argv[0], argv[1])
+        self.pc += 3
 
     def ram_read(self, mar):
         return self.ram[mar]
@@ -149,6 +178,28 @@ class CPU:
             # check less than
             elif self.reg[reg_a] < self.reg[reg_b]:
                 self.FL = 0b00000100
+        elif op == "AND": 
+            self.reg[reg_a] = self.reg[reg_a] & self.reg[reg_b]
+        elif op == "OR": 
+            self.reg[reg_a] = self.reg[reg_a] | self.reg[reg_b]
+        elif op == "XOR": 
+            self.reg[reg_a] = self.reg[reg_a] ^ self.reg[reg_b]
+        elif op == "NOT": 
+            register = self.reg[reg_a]
+            value = self.reg[register]
+            self.reg[register] = ~value
+        elif op == "SHL": 
+            valueA = self.reg[self.reg_a]
+            number_of_bits = self.reg[self.reg_b]
+            self.reg[self.reg_a] = (valueA << number_of_bits) % 255
+        elif op == math_op["SHR"]:
+            valueA = self.reg[self.reg_a]
+            number_of_bits = self.reg[self.reg_b]
+            self.reg[self.reg_a] = (valueA >> number_of_bits) % 255
+        elif op == math_op["MOD"]:
+            valueA = self.reg[self.reg_a]
+            valueB = self.reg[self.reg_b]
+            self.reg[self.reg_a] = valueA % valueB
 
         else:
             raise Exception("Unsupported ALU operation")
