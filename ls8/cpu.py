@@ -23,7 +23,7 @@ NOT = 0b01101001
 SHL = 0b10101100
 SHR = 0b10101101
 MOD = 0b10100100
-SP = 7  # R7 is reservered for the pointer to the stack
+SP = 7  # R7 is reservered for the pointer to the stack, there are others too
 
 #Creating the CPU Class
 class CPU:
